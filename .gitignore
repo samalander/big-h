@@ -15,3 +15,15 @@
 *.exe
 *.out
 *.app
+
+# Pebble watchface SDK files
+build/
+include
+lib
+tools
+pebble_app.ld
+waf
+wscript
+
+# Other
+*.xcf
