@@ -10,8 +10,6 @@
 
 #include "pebble_os.h"
 #include "pebble_app.h"
-#include "pebble_fonts.h"
-
 
 #define MY_UUID { 0xF0, 0x2A, 0xFD, 0x8F, 0x3A, 0xEC, 0x4A, 0x43, 0x96, 0x45, 0x7A, 0x4B, 0x62, 0x8F, 0x29, 0xB5 }
 PBL_APP_INFO(MY_UUID,
@@ -51,7 +49,7 @@ void paint_weekday_text_single(GContext *ctx, int position) {
   int mday = tick_time.tm_mday;
   // difference between the position we're drawing and the current weekday
   int mday_delta = position - tick_time.tm_wday;
-  
+
   if (mday_delta < -3) {
     // if the day delta is too low, we actually draw a day in the future instead (Sunday to Tuesday when currently Thursday or later in the week)
     mday_delta += 7;
@@ -60,7 +58,7 @@ void paint_weekday_text_single(GContext *ctx, int position) {
     // if the day delta is too high, we actually draw a day in the past instead (Thursday to Saturday when currently Tuesday or earlier in the week)
     mday_delta -= 7;
   }
-  
+
 
   // to separate the weekdays in the past from those in the future, we draw an arrow on the border (except if that border is spread out on the screen edges)
   int line;
@@ -315,7 +313,7 @@ void handle_init(AppContextRef ctx) {
 
   // set to true if you'd like your pebble to vibrate on the hour
   vibrate_on_hour = false;
-  
+
   // by default, the date will be YYYY-MM-DD if the clock is 24-hour style and MM-DD-YYYY if the clock is 12-hour style
   // change to true if you'd like to always use US-style date format MM-DD-YYYY
   // change to false if you'd like to always use the YYYY-MM-DD format
@@ -379,7 +377,7 @@ void handle_init(AppContextRef ctx) {
 
   setup_layer(&weekday_background_layer, paint_weekday_background, &window.layer, 0, 0, 15, 168);
   setup_layer(&weekday_text_layer, paint_weekday_text, &weekday_background_layer, 0, 0, 14, 168);
-  
+
   setup_layer(&date_background_layer, paint_date_background, &window.layer, 133, 0, 11, 168);
   setup_layer(&date_text_layer, paint_date_text, &date_background_layer, 2, 0, 9, 168);
 
