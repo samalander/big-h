@@ -25,5 +25,8 @@ pebble_app.ld
 waf
 wscript
 
+# waf build files
+.lock-waf_*
+.waf-*
 # Other
 *.xcf
