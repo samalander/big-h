@@ -14,7 +14,7 @@
 #define MY_UUID { 0xF0, 0x2A, 0xFD, 0x8F, 0x3A, 0xEC, 0x4A, 0x43, 0x96, 0x45, 0x7A, 0x4B, 0x62, 0x8F, 0x29, 0xB5 }
 PBL_APP_INFO(MY_UUID,
              "Big H", "Samalander",
-             1, 0, /* App version */
+             1, 1, /* App version */
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_WATCH_FACE);
 
