@@ -32,38 +32,32 @@ Features
 	* AM is indicated by a small arrow pointing up over the center of the seconds bar
 	* PM is indicated by the small arrow pointing down under the center of the seconds bar
 
+Customizations
+--------------
+
+Changing settings and recompiling may make the following changes:
+
+* Watch can be made to vibrate on the hour
+* Hours can be shown with the leading zero
+* Weekday indicator can be replaced with spelled-out weekdays in:
+        * English
+        * French
+        * Spanish
+* Weekday indicator can be made so the first position is Monday rather than Sunday
+* Seconds indicator can be removed so the watchface only updates once per minute (even more battery efficient)
+* Date can be formatted in probably any format
+
+
 Development
 -----------
 
-The Roboto font was used to draw all the digit images.
+The Roboto font was used to draw all the characters/numbers.
 
-Watchface may easily be made to vibrate the watch on the hour, just modify the "(src/big-h.c)" to set the "vibrate_on_hour" variable to "true" in the "SETTINGS" section of the code as follows:
-
-    /************** SETTINGS - START **************/
-
-    // set to true if you'd like your pebble to vibrate on the hour
-    // ORIGINAL CODE: vibrate_on_hour = false;
-    vibrate_on_hour = true;
-
-    [...]
-
-  	/************** SETTINGS - END **************/
-
-
-Watchface may also be modified to disregard the 12/24-hour setting when choosing the date format to use by modifying the same "(src/big-h.c)" file to set the "us_date_format" variable in the "SETTINGS" section to "true" to use MM-DD-YYYY or to "false" to use YYYY-MM-DD.  See below:
-
-	/************** SETTINGS - START **************/
-
-	[...]
-	  
-	// by default, the date will be YYYY-MM-DD if the clock is 24-hour style and MM-DD-YYYY if the clock is 12-hour style
-	// change to true if you'd like to always use US-style date format MM-DD-YYYY
-	// change to false if you'd like to always use the YYYY-MM-DD format
-	// ORIGINAL CODE: us_date_format = !clock_is_24h_style();
-	us_date_format = true;
-
-	/************** SETTINGS - END **************/
-
+To modify the settings listed under "Customizations":
+1. Open the "src/big-h.c" file
+2. Find the "SETTINGS" section at the beginning of the file (not the very top, but not too far down)
+3. Modify the settings as you wish (the comments should explain what each does and how to change it)
+4. Recompile!
 
 License
 -------
