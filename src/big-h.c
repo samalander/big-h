@@ -28,7 +28,11 @@ PBL_APP_INFO(MY_UUID,
 
 // [[NS]]
 // set to false to disable the seconds display
-#define DISPLAY_SECONDS false
+#define DISPLAY_SECONDS true
+
+// [[M1]]
+// set to true to make Monday the first day of the week in the international weekday display (no effect on other weekday displays)
+#define WEEKDAY_MONDAY_FIRST false
 
 /*
  * By default, the date will be YYYY-MM-DD if the clock is 24-hour style and MM-DD-YYYY if the clock is 12-hour style.
@@ -77,8 +81,13 @@ void paint_weekday_background(Layer *layer, GContext *ctx) {
 void paint_weekday_text_single(GContext *ctx, int position) {
   // day of the month being drawn, based on the current day
   int mday = tick_time.tm_mday;
+  // day of the week being drawn, base on the current weekday
+  int wday = tick_time.tm_wday;
+  #if WEEKDAY_MONDAY_FIRST
+    wday = (wday + 6) % 7;
+  #endif
   // difference between the position we're drawing and the current weekday
-  int mday_delta = position - tick_time.tm_wday;
+  int mday_delta = position - wday;
 
   if (mday_delta < -3) {
     // if the day delta is too low, we actually draw a day in the future instead (Sunday to Tuesday when currently Thursday or later in the week)
@@ -140,7 +149,7 @@ void paint_weekday_text_single(GContext *ctx, int position) {
   }
   // decide where to draw and in what color
   int base_y = (position * 24) + 12 - 5;
-  int color = (bool)(tick_time.tm_wday == position);
+  int color = (bool)(wday == position);
   if (color) {
     // if we're drawing today's date, we need to fill in the background in white
     graphics_context_set_fill_color(ctx, GColorWhite);
