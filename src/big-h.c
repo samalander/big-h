@@ -51,7 +51,7 @@ PBL_APP_INFO(MY_UUID,
 /*
  * By default, the date will be YYYY-MM-DD if the clock is 24-hour style and MM-DD-YYYY if the clock is 12-hour style.
  *
- * [[USA]]
+ * [[MDY]]
  * Change to "M/D/Y" if you'd like to always use US-style date format MM/DD/YYYY.
  * [[YMD]]
  * Change to "Y-M-D" if you'd like to always use the YYYY-MM-DD format.
