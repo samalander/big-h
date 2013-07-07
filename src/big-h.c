@@ -26,6 +26,10 @@ PBL_APP_INFO(MY_UUID,
 // set to true if you'd like your pebble to vibrate on the hour
 #define VIBRATE_ON_HOUR false
 
+// [[NS]]
+// set to false to disable the seconds display
+#define DISPLAY_SECONDS false
+
 /*
  * By default, the date will be YYYY-MM-DD if the clock is 24-hour style and MM-DD-YYYY if the clock is 12-hour style.
  *
@@ -316,32 +320,41 @@ void paint_ampm(Layer *layer, GContext *ctx) {
 
 // draw the static background of the second indicator
 void paint_seconds_background(Layer *layer, GContext *ctx) {
-  // horizontal container lines
-  graphics_draw_line(ctx, GPoint(0, 3), GPoint(117, 3));
-  graphics_draw_line(ctx, GPoint(0, 6), GPoint(117, 6));
+  #if DISPLAY_SECONDS
+    // horizontal container lines
+    graphics_draw_line(ctx, GPoint(0, 3), GPoint(117, 3));
+    graphics_draw_line(ctx, GPoint(0, 6), GPoint(117, 6));
 
-  // halfway indicator (30s)
-  graphics_draw_line(ctx, GPoint(59, 0), GPoint(59, 1));
-  graphics_draw_line(ctx, GPoint(59, 8), GPoint(59, 9));
+    // halfway indicator (30s)
+    graphics_draw_line(ctx, GPoint(59, 0), GPoint(59, 1));
+    graphics_draw_line(ctx, GPoint(59, 8), GPoint(59, 9));
 
-  // quarter indicator (15s)
-  graphics_draw_line(ctx, GPoint(29, 1), GPoint(29, 1));
-  graphics_draw_line(ctx, GPoint(29, 8), GPoint(29, 8));
+    // quarter indicator (15s)
+    graphics_draw_line(ctx, GPoint(29, 1), GPoint(29, 1));
+    graphics_draw_line(ctx, GPoint(29, 8), GPoint(29, 8));
 
-  // three-quarter indicator (45s)
-  graphics_draw_line(ctx, GPoint(89, 1), GPoint(89, 1));
-  graphics_draw_line(ctx, GPoint(89, 8), GPoint(89, 8));
+    // three-quarter indicator (45s)
+    graphics_draw_line(ctx, GPoint(89, 1), GPoint(89, 1));
+    graphics_draw_line(ctx, GPoint(89, 8), GPoint(89, 8));
+  #else
+    // horizontal lines
+    graphics_draw_line(ctx, GPoint(0, 4), GPoint(117, 4));
+    graphics_draw_line(ctx, GPoint(0, 5), GPoint(117, 5));
+
+  #endif
 }
 
 
 // draw the second indicator
 void paint_seconds_indicator(Layer *layer, GContext *ctx) {
-  // draw nothing if we're at zero
-  if (tick_time.tm_sec > 0) {
-    // our indicator is just 2 lines to minimize battery impact while remaining visible
-    graphics_draw_line(ctx, GPoint(0, 0), GPoint((tick_time.tm_sec * 2) - 1, 0));
-    graphics_draw_line(ctx, GPoint(0, 1), GPoint((tick_time.tm_sec * 2) - 1, 1));
-  }
+  #if DISPLAY_SECONDS
+    // draw nothing if we're at zero
+    if (tick_time.tm_sec > 0) {
+      // our indicator is just 2 lines to minimize battery impact while remaining visible
+      graphics_draw_line(ctx, GPoint(0, 0), GPoint((tick_time.tm_sec * 2) - 1, 0));
+      graphics_draw_line(ctx, GPoint(0, 1), GPoint((tick_time.tm_sec * 2) - 1, 1));
+    }
+  #endif
 }
 
 
@@ -354,31 +367,35 @@ void setup_layer(Layer* me, void* painter, Layer* parent, int x, int y, int widt
 }
 
 
-// the second tick handler
-void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
+// the tick handler
+void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
   (void)t;
   (void)ctx;
 
   // populate the current time in our time variable
   tick_time = *t->tick_time;
-  layer_mark_dirty(&seconds_indicator_layer);
-  if (tick_time.tm_sec == 0) {
-    layer_mark_dirty(&minutes_layer);
-    if (tick_time.tm_min == 0) {
-      if (VIBRATE_ON_HOUR) {
-        // vibrate on the hour if that option is activated
-        vibes_short_pulse();
+  #if DISPLAY_SECONDS
+    layer_mark_dirty(&seconds_indicator_layer);
+    if (tick_time.tm_sec == 0) {
+  #endif
+      layer_mark_dirty(&minutes_layer);
+      if (tick_time.tm_min == 0) {
+        if (VIBRATE_ON_HOUR) {
+          // vibrate on the hour if that option is activated
+          vibes_short_pulse();
+        }
+        layer_mark_dirty(&hours_layer);
+        if (!clock_is_24h_style() && (tick_time.tm_hour % 12 == 0)) {
+          layer_mark_dirty(&ampm_layer);
+        }
+        if (tick_time.tm_hour == 0) {
+          layer_mark_dirty(&weekday_text_layer);
+          layer_mark_dirty(&date_text_layer);
+        }
       }
-      layer_mark_dirty(&hours_layer);
-      if (!clock_is_24h_style() && (tick_time.tm_hour % 12 == 0)) {
-        layer_mark_dirty(&ampm_layer);
-      }
-      if (tick_time.tm_hour == 0) {
-        layer_mark_dirty(&weekday_text_layer);
-        layer_mark_dirty(&date_text_layer);
-      }
+  #if DISPLAY_SECONDS
     }
-  }
+  #endif
 }
 
 
@@ -475,8 +492,12 @@ void pbl_main(void *params) {
     .init_handler = &handle_init,
     .deinit_handler = &handle_deinit,
     .tick_info = {
-      .tick_handler = &handle_second_tick,
-      .tick_units = SECOND_UNIT
+      .tick_handler = &handle_tick,
+      #if DISPLAY_SECONDS
+        .tick_units = SECOND_UNIT
+      #else
+        .tick_units = MINUTE_UNIT
+      #endif
     }
   };
   app_event_loop(params, &handlers);
