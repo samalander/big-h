@@ -18,11 +18,37 @@ PBL_APP_INFO(MY_UUID,
              RESOURCE_ID_IMAGE_MENU_ICON,
              APP_INFO_WATCH_FACE);
 
+#define DATE_FORMAT_AUTO "auto"
+
+/************** SETTINGS - START **************/
+
+// [[V]]
+// set to true if you'd like your pebble to vibrate on the hour
+#define VIBRATE_ON_HOUR false
+
+/*
+ * By default, the date will be YYYY-MM-DD if the clock is 24-hour style and MM-DD-YYYY if the clock is 12-hour style.
+ *
+ * [[USA]]
+ * Change to "M/D/Y" if you'd like to always use US-style date format MM/DD/YYYY.
+ * [[YMD]]
+ * Change to "Y-M-D" if you'd like to always use the YYYY-MM-DD format.
+ * [[DMY]]
+ * Change to "D-M-Y" if you'd like to always use the DD-MM-YYYY format.
+ *
+ * Any other order of 'Y', 'M' and 'D' will also work.  You can even omit those you don't want.
+ * Lowercase 'y', 'm' or 'd' may also be used.  'y' will use a 2-digit year, 'm' and 'd' will omit any leading zeroes.
+ * Separators can be either '-', '/', '.' or ' ' at your choice.
+ * Any other character will be ignored.
+ */
+#define DATE_FORMAT DATE_FORMAT_AUTO
+
+/************** SETTINGS - END **************/
+
 Window window;
 Layer weekday_background_layer, weekday_text_layer, date_background_layer, date_text_layer, hours_layer, minutes_layer, seconds_background_layer, seconds_indicator_layer, ampm_layer;
 BmpContainer date_digits[10], time_digits[10], weekday_digits[2][10];
 static int mday_max[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-bool vibrate_on_hour, us_date_format;
 
 // Global time to have access to it in draw events
 PblTm tick_time;
@@ -139,19 +165,30 @@ void paint_date_background(Layer *layer, GContext *ctx) {
 
 
 // draw all the digits of the date from the array we're passed
-void paint_date_digits(GContext *ctx, int *digits) {
+void paint_date_digits(GContext *ctx, int *digits, int length) {
   int base_y;
+  int offset = (10 - length) / 2 * 16;
   // loop over the array to draw the digits
   for (int i = 0; i < 10; i++) {
-    base_y = (i * 16) + 5;
+    base_y = offset + (i * 16) + 5;
     if (digits[i] == -1) {
-      // we're actually drawing a dash for unit separation
+      // we're drawing a dash for unit separation
       graphics_draw_line(ctx, GPoint(2, base_y + 7), GPoint(6, base_y + 7));
     }
-    else {
+    else if (digits[i] == -2) {
+      // we're drawing a slash for unit separation
+      graphics_draw_line(ctx, GPoint(1, base_y + 13), GPoint(8, base_y));
+    }
+    else if (digits[i] == -3) {
+      // we're drawing a dot for unit separation
+      graphics_context_set_fill_color(ctx, GColorWhite);
+      graphics_fill_circle(ctx, GPoint(4, base_y + 7), 1);
+    }
+    else if (digits[i] >= 0 && digits[i] <= 9) {
       // actually drawing a digit!
       graphics_draw_bitmap_in_rect(ctx, &date_digits[digits[i]].bmp, GRect(0, base_y, 10, 13));
     }
+    // Anything else will leave a blank space
   }
 }
 
@@ -161,43 +198,83 @@ void paint_date_text(Layer *layer, GContext *ctx) {
   // fill the date array with our date data
   int year = tick_time.tm_year + 1900;
   int month = tick_time.tm_mon + 1;
-  // pre-fill the array with -1s since that's our "dash" value
-  int digits[10] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-  int position;
-  // position the year's digits in the array
-  if (us_date_format) {
-    position = 6;
-  }
-  else {
-    position = 0;
-  }
-  digits[position] = year / 1000;
-  digits[++position] = year % 1000 / 100;
-  digits[++position] = year % 100 / 10;
-  digits[++position] = year % 10;
 
-  // position the month's digits in the array
-  if (us_date_format) {
-    position = 0;
+  char date_str[10];
+  int date_int[10] = { [0 ... 9] = 255 };
+  if (strcmp(DATE_FORMAT, DATE_FORMAT_AUTO) == 0) {
+    if (!clock_is_24h_style()) {
+      strcpy(date_str, "M/D/Y");
+    }
+    else {
+      strcpy(date_str, "Y-M-D");
+    }
   }
   else {
-    position = 5;
+    strcpy(date_str, DATE_FORMAT);
   }
-  digits[position] = month / 10;
-  digits[++position] = month % 10;
 
-  // potition the day's digits in the array
-  if (us_date_format) {
-    position = 3;
+  int j = 0;
+  for (int i = 0; i < 10; i++) {
+    switch (date_str[i]) {
+      case '-':
+        date_int[j++] = -1;
+        break;
+      case '/':
+        date_int[j++] = -2;
+        break;
+      case '.':
+        date_int[j++] = -3;
+        break;
+      case ' ':
+        j++;
+        break;
+      case 'Y':
+        date_int[j] = year / 1000;
+        date_int[++j] = year % 1000 / 100;
+        date_int[++j] = year % 100 / 10;
+        date_int[++j] = year % 10;
+        j++;
+        break;
+      case 'y':
+        date_int[j] = year % 100 / 10;
+        date_int[++j] = year % 10;
+        j++;
+        break;
+      case 'M':
+        date_int[j] = month / 10;
+        date_int[++j] = month % 10;
+        j++;
+        break;
+      case 'm':
+        if (month >= 10) {
+          date_int[j] = month / 10;
+          date_int[++j] = month % 10;
+        }
+        else {
+          date_int[j] = month % 10;
+        }
+        j++;
+        break;
+      case 'D':
+        date_int[j] = tick_time.tm_mday / 10;
+        date_int[++j] = tick_time.tm_mday % 10;
+        j++;
+        break;
+      case 'd':
+        if (tick_time.tm_mday >= 10) {
+          date_int[j] = tick_time.tm_mday / 10;
+          date_int[++j] = tick_time.tm_mday % 10;
+        }
+        else {
+          date_int[j] = tick_time.tm_mday % 10;
+        }
+        j++;
+        break;
+   }
   }
-  else {
-    position = 8;
-  }
-  digits[position] = tick_time.tm_mday / 10;
-  digits[++position] = tick_time.tm_mday % 10;
 
   // draw the actually digits now that we know where to put them
-  paint_date_digits(ctx, digits);
+  paint_date_digits(ctx, date_int, j);
 }
 
 
@@ -288,7 +365,7 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
   if (tick_time.tm_sec == 0) {
     layer_mark_dirty(&minutes_layer);
     if (tick_time.tm_min == 0) {
-      if (vibrate_on_hour) {
+      if (VIBRATE_ON_HOUR) {
         // vibrate on the hour if that option is activated
         vibes_short_pulse();
       }
@@ -308,18 +385,6 @@ void handle_second_tick(AppContextRef ctx, PebbleTickEvent *t) {
 // initialize, initialize, INITIALIZE!
 void handle_init(AppContextRef ctx) {
   (void)ctx;
-
-  /************** SETTINGS - START **************/
-
-  // set to true if you'd like your pebble to vibrate on the hour
-  vibrate_on_hour = false;
-
-  // by default, the date will be YYYY-MM-DD if the clock is 24-hour style and MM-DD-YYYY if the clock is 12-hour style
-  // change to true if you'd like to always use US-style date format MM-DD-YYYY
-  // change to false if you'd like to always use the YYYY-MM-DD format
-  us_date_format = !clock_is_24h_style();
-
-  /************** SETTINGS - END **************/
 
   window_init(&window, "Big H");
   window_stack_push(&window, true /* Animated */);
