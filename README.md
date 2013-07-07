@@ -40,9 +40,9 @@ Changing settings and recompiling may make the following changes:
 * Watch can be made to vibrate on the hour
 * Hours can be shown with the leading zero
 * Weekday indicator can be replaced with spelled-out weekdays in:
-        * English
-        * French
-        * Spanish
+	* English
+	* French
+	* Spanish
 * Weekday indicator can be made so the first position is Monday rather than Sunday
 * Seconds indicator can be removed so the watchface only updates once per minute (even more battery efficient)
 * Date can be formatted in probably any format
@@ -54,6 +54,7 @@ Development
 The Roboto font was used to draw all the characters/numbers.
 
 To modify the settings listed under "Customizations":
+
 1. Open the "src/big-h.c" file
 2. Find the "SETTINGS" section at the beginning of the file (not the very top, but not too far down)
 3. Modify the settings as you wish (the comments should explain what each does and how to change it)
