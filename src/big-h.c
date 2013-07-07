@@ -37,6 +37,10 @@ PBL_APP_INFO(MY_UUID,
 // set to false to disable the seconds display
 #define DISPLAY_SECONDS true
 
+// [[H0]]
+// set to true to display the leading zero on the hour
+#define HOUR_ZERO false
+
 // [[M1]]
 // set to true to make Monday the first day of the week in the international weekday display (no effect on other weekday displays)
 #define WEEKDAY_MONDAY_FIRST false
@@ -324,9 +328,13 @@ void paint_hours(Layer *layer, GContext *ctx) {
       hour = 12;
     }
   }
-  if (hour >= 10) {
+  #if !HOUR_ZERO
+    if (hour >= 10) {
+  #endif
     graphics_draw_bitmap_in_rect(ctx, &time_digits[hour / 10].bmp, GRect(4, 0, 60, 82));
-  }
+  #if !HOUR_ZERO
+    }
+  #endif
   graphics_draw_bitmap_in_rect(ctx, &time_digits[hour % 10].bmp, GRect(60, 0, 60, 82));
 }
 
