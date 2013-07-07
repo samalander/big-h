@@ -207,6 +207,111 @@
 			"type": "png",
 			"defName": "WEEKDAY_1_9",
 			"file": "images/weekday_1_9.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_EN_0",
+			"file": "images/weekday_en_0.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_EN_1",
+			"file": "images/weekday_en_1.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_EN_2",
+			"file": "images/weekday_en_2.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_EN_3",
+			"file": "images/weekday_en_3.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_EN_4",
+			"file": "images/weekday_en_4.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_EN_5",
+			"file": "images/weekday_en_5.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_EN_6",
+			"file": "images/weekday_en_6.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_ES_0",
+			"file": "images/weekday_es_0.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_ES_1",
+			"file": "images/weekday_es_1.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_ES_2",
+			"file": "images/weekday_es_2.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_ES_3",
+			"file": "images/weekday_es_3.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_ES_4",
+			"file": "images/weekday_es_4.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_ES_5",
+			"file": "images/weekday_es_5.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_ES_6",
+			"file": "images/weekday_es_6.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_FR_0",
+			"file": "images/weekday_fr_0.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_FR_1",
+			"file": "images/weekday_fr_1.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_FR_2",
+			"file": "images/weekday_fr_2.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_FR_3",
+			"file": "images/weekday_fr_3.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_FR_4",
+			"file": "images/weekday_fr_4.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_FR_5",
+			"file": "images/weekday_fr_5.png"
+		},
+		{
+			"type": "png",
+			"defName": "WEEKDAY_FR_6",
+			"file": "images/weekday_fr_6.png"
 		}
 	]
 }
