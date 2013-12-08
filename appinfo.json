@@ -3,11 +3,12 @@
   "shortName": "Big H",
   "longName": "Big H",
   "companyName": "Samalander",
-  "versionCode": 1,
-  "versionLabel": "1.1.0",
+  "versionCode": 2,
+  "versionLabel": "2.0.0",
   "watchapp": {
     "watchface": true
   },
+  "capabilities": [ "configurable" ],
   "appKeys": {},
   "resources": {
     "media": [
