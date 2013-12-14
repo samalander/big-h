@@ -30,6 +30,11 @@ static const Layer_Dim Minutes_Layer_Dim = {15, 88, 118, 80};
 static const Layer_Dim Seconds_BG_Layer_Dim = {15, 81, 118, 10};
 static const Layer_Dim Seconds_Layer_Dim = {0, 4, 118, 2};
 
+static const int16_t Offset = 1;
+
+static const int16_t Seconds_BG_Y1 = 3,
+                     Seconds_BG_Y2 = 6;
+
 
 // ===== Global Variables =====
 static Window * window;
@@ -45,6 +50,29 @@ static Layer * window_layer,
              * seconds_layer;
 
 
+// Drawing the weekday background layer
+static void weekday_bg_layer_draw(Layer *layer, GContext *ctx) {
+    GRect bounds = layer_get_bounds(layer);
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_draw_line(ctx, GPoint(bounds.size.w - Offset, 0), GPoint(bounds.size.w - Offset, bounds.size.h - Offset));
+}
+
+
+// Drawing the date background layer
+static void date_bg_layer_draw(Layer *layer, GContext *ctx) {
+    GRect bounds = layer_get_bounds(layer);
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_draw_line(ctx, GPoint(0, 0), GPoint(0, bounds.size.h - Offset));
+}
+
+
+// Drawing the seconds background layer
+static void seconds_bg_layer_draw(Layer *layer, GContext *ctx) {
+    GRect bounds = layer_get_bounds(layer);
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y1), GPoint(bounds.size.w - Offset, Seconds_BG_Y1));
+    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y2), GPoint(bounds.size.w - Offset, Seconds_BG_Y2));
+}
 // initialize, initialize, INITIALIZE!
 void handle_init(void) {
     window = window_create();
@@ -54,12 +82,15 @@ void handle_init(void) {
 
     // Background layers
     weekday_bg_layer = layer_create(GRect(Weekday_BG_Layer_Dim.x, Weekday_BG_Layer_Dim.y, Weekday_BG_Layer_Dim.width, Weekday_BG_Layer_Dim.height));
+    layer_set_update_proc(weekday_bg_layer, weekday_bg_layer_draw);
     layer_add_child(window_layer, weekday_bg_layer);
 
     date_bg_layer = layer_create(GRect(Date_BG_Layer_Dim.x, Date_BG_Layer_Dim.y, Date_BG_Layer_Dim.width, Date_BG_Layer_Dim.height));
+    layer_set_update_proc(date_bg_layer, date_bg_layer_draw);
     layer_add_child(window_layer, date_bg_layer);
 
     seconds_bg_layer = layer_create(GRect(Seconds_BG_Layer_Dim.x, Seconds_BG_Layer_Dim.y, Seconds_BG_Layer_Dim.width, Seconds_BG_Layer_Dim.height));
+    layer_set_update_proc(seconds_bg_layer, seconds_bg_layer_draw);
     layer_add_child(window_layer, seconds_bg_layer);
 }
 
