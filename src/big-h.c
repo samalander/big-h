@@ -33,17 +33,44 @@ static const Layer_Dim Seconds_Layer_Dim = {0, 4, 118, 2};
 
 // ===== Global Variables =====
 static Window * window;
+static Layer * window_layer,
+             * weekday_bg_layer,
+             * weekday_layer,
+             * date_bg_layer,
+             * date_layer,
+             * ampm_layer,
+             * hours_layer,
+             * minutes_layer,
+             * seconds_bg_layer,
+             * seconds_layer;
 
 
 // initialize, initialize, INITIALIZE!
 void handle_init(void) {
     window = window_create();
     window_stack_push(window, true /* Animated */);
+    window_set_background_color(window, GColorBlack);
+    window_layer = window_get_root_layer(window);
+
+    // Background layers
+    weekday_bg_layer = layer_create(GRect(Weekday_BG_Layer_Dim.x, Weekday_BG_Layer_Dim.y, Weekday_BG_Layer_Dim.width, Weekday_BG_Layer_Dim.height));
+    layer_add_child(window_layer, weekday_bg_layer);
+
+    date_bg_layer = layer_create(GRect(Date_BG_Layer_Dim.x, Date_BG_Layer_Dim.y, Date_BG_Layer_Dim.width, Date_BG_Layer_Dim.height));
+    layer_add_child(window_layer, date_bg_layer);
+
+    seconds_bg_layer = layer_create(GRect(Seconds_BG_Layer_Dim.x, Seconds_BG_Layer_Dim.y, Seconds_BG_Layer_Dim.width, Seconds_BG_Layer_Dim.height));
+    layer_add_child(window_layer, seconds_bg_layer);
 }
 
 
 // destroy, destroy, DESTROY!
 void handle_deinit(void) {
+    // Background layers
+    layer_destroy(weekday_bg_layer);
+    layer_destroy(date_bg_layer);
+    layer_destroy(seconds_bg_layer);
+
     window_destroy(window);
 }
 
