@@ -15,53 +15,20 @@
 
 
 // ===== Defined Constants =====
-#define SCREEN_WIDTH 144;
-#define SCREEN_HEIGHT 168;
+typedef struct Layer_Dim {
+  int16_t x, y, width, height;
+} Layer_Dim;
 
-#define WEEKDAY_BG_LAYER_X 0;
-#define WEEKDAY_BG_LAYER_Y 0;
-#define WEEKDAY_BG_LAYER_WIDTH 15;
-#define WEEKDAY_BG_LAYER_HEIGHT SCREEN_HEIGHT;
-
-#define WEEKDAY_LAYER_X 0;
-#define WEEKDAY_LAYER_Y 0;
-#define WEEKDAY_LAYER_WIDTH 14;
-#define WEEKDAY_LAYER_HEIGHT SCREEN_HEIGHT;
-
-#define DATE_BG_LAYER_X 133;
-#define DATE_BG_LAYER_Y 0;
-#define DATE_BG_LAYER_WIDTH 11;
-#define DATE_BG_LAYER_HEIGHT SCREEN_HEIGHT;
-
-#define DATE_LAYER_X 2;
-#define DATE_LAYER_Y 0;
-#define DATE_LAYER_WIDTH 9;
-#define DATE_LAYER_HEIGHT SCREEN_HEIGHT;
-
-#define AMPM_LAYER_X 71;
-#define AMPM_LAYER_Y 80;
-#define AMPM_LAYER_WIDTH 7;
-#define AMPM_LAYER_HEIGHT 12;
-
-#define HOURS_LAYER_X 15;
-#define HOURS_LAYER_Y 0;
-#define HOURS_LAYER_WIDTH 118;
-#define HOURS_LAYER_HEIGHT 80;
-
-#define MINUTES_LAYER_X 15;
-#define MINUTES_LAYER_Y 88;
-#define MINUTES_LAYER_WIDTH 118;
-#define MINUTES_LAYER_HEIGHT 80;
-
-#define SECONDS_BG_LAYER_X 15;
-#define SECONDS_BG_LAYER_Y 81;
-#define SECONDS_BG_LAYER_WIDTH 118;
-#define SECONDS_BG_LAYER_HEIGHT 10;
-
-#define SECONDS_LAYER_X 0;
-#define SECONDS_LAYER_Y 4;
-#define SECONDS_LAYER_WIDTH 118;
-#define SECONDS_LAYER_HEIGHT 2;
+static const Layer_Dim Screen_Dim = {0, 0, 144, 168};
+static const Layer_Dim Weekday_BG_Layer_Dim = {0, 0, 15, 168};
+static const Layer_Dim Weekday_Layer_Dim = {0, 0, 14, 168};
+static const Layer_Dim Date_BG_Layer_Dim = {133, 0, 11, 168};
+static const Layer_Dim Date_Layer_Dim = {2, 0, 9, 168};
+static const Layer_Dim AmPm_Layer_Dim = {71, 80, 7, 12};
+static const Layer_Dim Hours_Layer_Dim = {15, 0, 118, 80};
+static const Layer_Dim Minutes_Layer_Dim = {15, 88, 118, 80};
+static const Layer_Dim Seconds_BG_Layer_Dim = {15, 81, 118, 10};
+static const Layer_Dim Seconds_Layer_Dim = {0, 4, 118, 2};
 
 
 // ===== Global Variables =====
