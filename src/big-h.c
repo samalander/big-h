@@ -75,6 +75,7 @@ GBitmap * weekday_digits[10],
         * date_digits[10],
         * time_digits[10];
 struct tm current_time;
+int16_t battery_state;
 
 
 // Drawing the weekday background layer
@@ -102,8 +103,9 @@ static void seconds_bg_layer_draw(Layer *layer, GContext *ctx) {
     // Horizontal container lines
     GRect bounds = layer_get_bounds(layer);
     graphics_context_set_stroke_color(ctx, GColorWhite);
-    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y1), GPoint(bounds.size.w - Offset, Seconds_BG_Y1));
-    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y2), GPoint(bounds.size.w - Offset, Seconds_BG_Y2));
+
+    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y1), GPoint(bounds.size.w * battery_state / 100, Seconds_BG_Y1));
+    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y2), GPoint(bounds.size.w * battery_state / 100, Seconds_BG_Y2));
 
     // Halfway indicator (30s)
     graphics_draw_line(ctx, GPoint(Seconds_BG_Ind30_X, 0), GPoint(Seconds_BG_Ind30_X, Offset));
@@ -387,12 +389,20 @@ static void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     }
 }
 
+// Handle the battery change event
+static void handle_battery(BatteryChargeState charge_state) {
+    battery_state = charge_state.charge_percent;
+    layer_mark_dirty(seconds_bg_layer);
+}
+
 
 // initialize, initialize, INITIALIZE!
 void handle_init(void) {
-    // Populate the global time variable so we have it when painting
+    // Populate the global time and battery variables so we have them when painting
     time_t timer = time(NULL);
     current_time = *localtime(&timer);
+    BatteryChargeState battery_peek = battery_state_service_peek();
+    battery_state = battery_peek.charge_percent;
 
     // Setting up our window
     window = window_create();
@@ -473,6 +483,9 @@ void handle_init(void) {
 
     // Subscribing to the tick event
     tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
+
+    // Subscribing to the battery change event
+    battery_state_service_subscribe(handle_battery);
 }
 
 
