@@ -51,6 +51,10 @@ static const int16_t Date_Max_Char = 10,
                      Date_Char_Height = 16,
                      Date_Char_Space = 5;
 
+static const int16_t Weekday_Day_Height = 24,
+                     Weekday_Nb = 7,
+                     Weekday_Max_Delta = 3;
+
 static int16_t mday_max[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 
@@ -78,6 +82,10 @@ static void weekday_bg_layer_draw(Layer *layer, GContext *ctx) {
     GRect bounds = layer_get_bounds(layer);
     graphics_context_set_stroke_color(ctx, GColorWhite);
     graphics_draw_line(ctx, GPoint(bounds.size.w - Offset, 0), GPoint(bounds.size.w - Offset, bounds.size.h - Offset));
+
+    for (int16_t i = 1; i < Weekday_Nb; i++) {
+        graphics_draw_line(ctx, GPoint(0, i * Weekday_Day_Height), GPoint(bounds.size.w, i * Weekday_Day_Height));
+    }
 }
 
 
@@ -113,7 +121,94 @@ static void seconds_bg_layer_draw(Layer *layer, GContext *ctx) {
 
 // Drawing the weekday layer
 static void weekday_layer_draw(Layer *layer, GContext *ctx) {
+    graphics_context_set_stroke_color(ctx, GColorWhite);
 
+    for (int16_t position = 0; position < Weekday_Nb; position++) {
+        // Day of the month being drawn, based on the current day
+        int16_t mday = current_time.tm_mday;
+        // Day of the week being drawn, based on the current weekday
+        int16_t wday = current_time.tm_wday;
+        // Difference between the position we're drawing and the current weekday
+        int16_t mday_delta = position - wday;
+
+        if (mday_delta < -Weekday_Max_Delta) {
+            // If the day delta is too low, we actually draw a day in the future instead  (Sunday to Tuesday when currently Thursday or later in the week)
+            mday_delta += Weekday_Nb;
+        }
+        else if (mday_delta > Weekday_Max_Delta) {
+            // If the day delta is too high, we actually draw a day in the past instead (Thursday to Saturday when currently Tuesday or earlier in the week)
+            mday_delta -= Weekday_Nb;
+        }
+
+        // To separate the weekdays in the past from those in the future, we draw an arrow on the border (except if that border is spread out on the screen edges)
+        int16_t line;
+        switch (mday_delta) {
+            // Draw the bottom part of the arrow
+            case -3:
+                if (position > 0) {
+                    line = position * 24;
+                    for (int i = 2; i < 7; i += 2) {
+                        graphics_draw_line(ctx, GPoint(i, ++line), GPoint(13 - i, line));
+                    }
+                }
+                break;
+            // Draw the top part of the arrow
+            case 3:
+                if (position < 6) {
+                    line = (position + 1) * 24;
+                    for (int i = 0; i < 6; i += 2) {
+                        graphics_draw_line(ctx, GPoint(0, --line), GPoint(5 - i, line));
+                        graphics_draw_line(ctx, GPoint(8 + i, line), GPoint(13, line));
+                    }
+                }
+                break;
+        }
+
+        // Decide what the day of the month we're drawing actually is
+        mday += mday_delta;
+        if (mday < 1) {
+            // If we're in the past and accross a month's start, get the last day of the previous month and count from there
+            int16_t new_month = current_time.tm_mon - 1;
+            // watch out for December...
+            if (new_month == -1) {
+                new_month = 11;
+            }
+            mday += mday_max[new_month];
+            // ... and February on leap years (not checking for the 100s and 400s rules since they won't occur for 87 years...)
+            if ((new_month == 1) && ((current_time.tm_year + 1900) % 4 == 0)) {
+                mday++;
+            }
+        }
+        else if (mday > mday_max[current_time.tm_mon]) {
+            // If we're in the future and past the current month's end, start from 1 in the next month
+            int mday_mod = mday_max[current_time.tm_mon];
+            // watch out for February in leap years here too
+            if ((current_time.tm_mon == 1) && ((current_time.tm_year + 1900) % 4 == 0)) {
+                mday_mod++;
+            }
+            mday %= mday_mod;
+        }
+
+        // Decide where to draw and in what color
+        int base_y = (position * Weekday_Day_Height) + 12 - 5;
+        int color = (bool)(wday == position);
+        if (color) {
+            // If we're drawing today's date, we need to fill in the background in white...
+            graphics_context_set_fill_color(ctx, GColorWhite);
+            graphics_fill_rect(ctx, GRect(0, position * Weekday_Day_Height, 14, Weekday_Day_Height), 0, GCornerNone);
+            // ... and draw our digits in inverted mode
+            graphics_context_set_compositing_mode(ctx, GCompOpAssignInverted);
+        }
+        // draw the actual digits from what we decided above
+        if (mday >= 10) {
+            graphics_draw_bitmap_in_rect(ctx, weekday_digits[mday / 10], GRect(0, base_y, 6, 11));
+        }
+        graphics_draw_bitmap_in_rect(ctx, weekday_digits[mday % 10], GRect(7, base_y, 6, 11));
+        if (color) {
+            // Switching the context back to normal mode
+            graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+        }
+    }
 }
 
 
@@ -365,6 +460,16 @@ void handle_init(void) {
     date_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_DATE_8);
     date_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_DATE_9);
 
+    weekday_digits[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_0);
+    weekday_digits[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_1);
+    weekday_digits[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_2);
+    weekday_digits[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_3);
+    weekday_digits[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_4);
+    weekday_digits[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_5);
+    weekday_digits[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_6);
+    weekday_digits[7] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_7);
+    weekday_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_8);
+    weekday_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_9);
 
     // Subscribing to the tick event
     tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
@@ -377,6 +482,7 @@ void handle_deinit(void) {
     for (int16_t i = 0; i < 10; i++) {
         gbitmap_destroy(time_digits[i]);
         gbitmap_destroy(date_digits[i]);
+        gbitmap_destroy(weekday_digits[i]);
     }
 
     // Display layers

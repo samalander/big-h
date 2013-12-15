@@ -120,103 +120,53 @@
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_0",
-        "file": "images/weekday_0_0.png"
+        "name": "WEEKDAY_0",
+        "file": "images/weekday_0.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_1",
-        "file": "images/weekday_0_1.png"
+        "name": "WEEKDAY_1",
+        "file": "images/weekday_1.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_2",
-        "file": "images/weekday_0_2.png"
+        "name": "WEEKDAY_2",
+        "file": "images/weekday_2.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_3",
-        "file": "images/weekday_0_3.png"
+        "name": "WEEKDAY_3",
+        "file": "images/weekday_3.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_4",
-        "file": "images/weekday_0_4.png"
+        "name": "WEEKDAY_4",
+        "file": "images/weekday_4.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_5",
-        "file": "images/weekday_0_5.png"
+        "name": "WEEKDAY_5",
+        "file": "images/weekday_5.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_6",
-        "file": "images/weekday_0_6.png"
+        "name": "WEEKDAY_6",
+        "file": "images/weekday_6.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_7",
-        "file": "images/weekday_0_7.png"
+        "name": "WEEKDAY_7",
+        "file": "images/weekday_7.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_8",
-        "file": "images/weekday_0_8.png"
+        "name": "WEEKDAY_8",
+        "file": "images/weekday_8.png"
       },
       {
         "type": "png",
-        "name": "WEEKDAY_0_9",
-        "file": "images/weekday_0_9.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_0",
-        "file": "images/weekday_1_0.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_1",
-        "file": "images/weekday_1_1.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_2",
-        "file": "images/weekday_1_2.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_3",
-        "file": "images/weekday_1_3.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_4",
-        "file": "images/weekday_1_4.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_5",
-        "file": "images/weekday_1_5.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_6",
-        "file": "images/weekday_1_6.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_7",
-        "file": "images/weekday_1_7.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_8",
-        "file": "images/weekday_1_8.png"
-      },
-      {
-        "type": "png",
-        "name": "WEEKDAY_1_9",
-        "file": "images/weekday_1_9.png"
+        "name": "WEEKDAY_9",
+        "file": "images/weekday_9.png"
       },
       {
         "type": "png",
