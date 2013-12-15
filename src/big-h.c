@@ -30,6 +30,7 @@ static const Rect_Predef Minutes_Layer_Dim = {15, 88, 118, 80};
 static const Rect_Predef Seconds_BG_Layer_Dim = {15, 81, 118, 10};
 static const Rect_Predef Seconds_Layer_Dim = {0, 4, 118, 2};
 static const Rect_Predef Time_Digit[2] = {{0, 0, 60, 82}, {60, 0, 60, 82}};
+static const Rect_Predef Date_Digit = {0, 0, 10, 13};
 
 static const int16_t Offset = 1;
 
@@ -45,6 +46,10 @@ static const int16_t Seconds_BG_Y1 = 3,
                      Seconds_BG_Ind30_X = 59,
                      Seconds_BG_Ind15_X = 29,
                      Seconds_BG_Ind45_X = 89;
+
+static const int16_t Date_Max_Char = 10,
+                     Date_Char_Height = 16,
+                     Date_Char_Space = 5;
 
 static int16_t mday_max[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
@@ -114,17 +119,117 @@ static void weekday_layer_draw(Layer *layer, GContext *ctx) {
 
 // Drawing the date layer
 static void date_layer_draw(Layer *layer, GContext *ctx) {
-    
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+
+    // Fill the date array with our date data
+    int16_t year = current_time.tm_year + 1900;
+    int16_t month = current_time.tm_mon + 1;
+
+    char date_str[10];
+    int16_t date_int[10] = { [0 ... 9] = 255};
+    int16_t format_length;
+
+    if (!clock_is_24h_style()) {
+        strncpy(date_str, "M/D/Y", 10);
+    }
+    else {
+        strncpy(date_str, "Y-M-D", 10);
+    }
+    format_length = strlen(date_str);
+
+    int16_t j = 0;
+    for (int16_t i = 0; i < format_length; i++) {
+        switch (date_str[i]) {
+            case '-':
+                date_int[j++] = -1;
+                break;
+            case '/':
+                date_int[j++] = -2;
+                break;
+            case '.':
+                date_int[j++] = -3;
+                break;
+            case ' ':
+                j++;
+            case 'Y':
+                date_int[j] = year / 1000;
+                date_int[++j] = year % 1000 / 100;
+                date_int[++j] = year % 100 / 10;
+                date_int[++j] = year % 10;
+                j++;
+                break;
+            case 'y':
+                date_int[j] = year % 100 / 10;
+                date_int[++j] = year % 10;
+                j++;
+                break;
+            case 'M':
+                date_int[j] = month / 10;
+                date_int[++j] = month % 10;
+                j++;
+                break;
+            case 'm':
+                if (month >= 10) {
+                    date_int[j] = month / 10;
+                    date_int[++j] = month % 10;
+                }
+                else {
+                    date_int[j] = month % 10;
+                }
+                j++;
+                break;
+            case 'D':
+                date_int[j] = current_time.tm_mday / 10;
+                date_int[++j] = current_time.tm_mday % 10;
+                j++;
+                break;
+            case 'd':
+                if (current_time.tm_mday >= 10) {
+                    date_int[j] = current_time.tm_mday / 10;
+                    date_int[++j] = current_time.tm_mday % 10;
+                }
+                else {
+                    date_int[j] = current_time.tm_mday % 10;
+                }
+                j++;
+                break;
+            // Any other character has no meaning so we ignore it
+        }
+    }
+
+    int16_t base_y;
+    int16_t offset_y = (Date_Max_Char - j) / 2 * Date_Char_Height;
+
+    // Loop over the array to draw the digits
+    for (int16_t i = 0; i < j; i++) {
+        base_y = offset_y + (i * Date_Char_Height) + Date_Char_Space;
+        if (date_int[i] == -1) {
+            graphics_draw_line(ctx, GPoint(2, base_y + 7), GPoint(6, base_y + 7));
+        }
+        else if (date_int[i] == -2) {
+            graphics_draw_line(ctx, GPoint(1, base_y + 13), GPoint(8, base_y));
+        }
+        else if (date_int[i] == -3) {
+            graphics_context_set_fill_color(ctx, GColorWhite);
+            graphics_fill_circle(ctx, GPoint(4, base_y + 7), 1);
+        }
+        else if (date_int[i] >= 0 && date_int[i] <= 9) {
+            graphics_draw_bitmap_in_rect(ctx, date_digits[date_int[i]], GRect(Date_Digit.x, base_y, Date_Digit.width, Date_Digit.height));
+        }
+        // Anything else will leave a blank space
+    }
 }
 
 
 // Drawing the ampm layer
 static void ampm_layer_draw(Layer *layer, GContext *ctx) {
-    graphics_context_set_stroke_color(ctx, GColorWhite);
-    int16_t step = current_time.tm_hour < 12 ? -Offset : Offset,
-            base_y = current_time.tm_hour < 12 ? Am_Base_Y : Pm_Base_Y;
-    for (int16_t i = 0; i < AmPm_Height; i++) {
-        graphics_draw_line(ctx, GPoint(0 + i, base_y + (i * step)), GPoint(AmPm_Width - i, base_y + (i * step)));
+    if (!clock_is_24h_style()) {
+        graphics_context_set_stroke_color(ctx, GColorWhite);
+        int16_t step = current_time.tm_hour < 12 ? -Offset : Offset,
+                base_y = current_time.tm_hour < 12 ? Am_Base_Y : Pm_Base_Y;
+        for (int16_t i = 0; i < AmPm_Height; i++) {
+            graphics_draw_line(ctx, GPoint(0 + i, base_y + (i * step)), GPoint(AmPm_Width - i, base_y + (i * step)));
+        }
     }
 }
 
@@ -249,6 +354,17 @@ void handle_init(void) {
     time_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_TIME_8);
     time_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_TIME_9);
 
+    date_digits[0] = gbitmap_create_with_resource(RESOURCE_ID_DATE_0);
+    date_digits[1] = gbitmap_create_with_resource(RESOURCE_ID_DATE_1);
+    date_digits[2] = gbitmap_create_with_resource(RESOURCE_ID_DATE_2);
+    date_digits[3] = gbitmap_create_with_resource(RESOURCE_ID_DATE_3);
+    date_digits[4] = gbitmap_create_with_resource(RESOURCE_ID_DATE_4);
+    date_digits[5] = gbitmap_create_with_resource(RESOURCE_ID_DATE_5);
+    date_digits[6] = gbitmap_create_with_resource(RESOURCE_ID_DATE_6);
+    date_digits[7] = gbitmap_create_with_resource(RESOURCE_ID_DATE_7);
+    date_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_DATE_8);
+    date_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_DATE_9);
+
 
     // Subscribing to the tick event
     tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
@@ -260,6 +376,7 @@ void handle_deinit(void) {
     // Bitmap resources
     for (int16_t i = 0; i < 10; i++) {
         gbitmap_destroy(time_digits[i]);
+        gbitmap_destroy(date_digits[i]);
     }
 
     // Display layers
