@@ -19,6 +19,23 @@ typedef struct Rect_Predef {
     int16_t x, y, width, height;
 } Rect_Predef;
 
+enum weekday_format_types {
+    INTL = 0,
+    EN = 1,
+    FR = 2,
+    ES = 3
+};
+
+typedef struct Settings_Type {
+    enum weekday_format_types weekday_format;
+    bool vibrate_on_hour;
+    bool display_seconds;
+    bool leading_zero;
+    int16_t weekday_first_day;
+    char date_format[10];
+    bool display_battery;
+} Settings_Type;
+
 static const Rect_Predef Screen_Dim = {0, 0, 144, 168};
 static const Rect_Predef Weekday_BG_Layer_Dim = {0, 0, 15, 168};
 static const Rect_Predef Weekday_Layer_Dim = {0, 0, 14, 168};
@@ -76,6 +93,7 @@ GBitmap * weekday_digits[10],
         * time_digits[10];
 struct tm current_time;
 int16_t battery_state;
+struct Settings_Type settings;
 
 
 // Drawing the weekday background layer
@@ -84,8 +102,10 @@ static void weekday_bg_layer_draw(Layer *layer, GContext *ctx) {
     graphics_context_set_stroke_color(ctx, GColorWhite);
     graphics_draw_line(ctx, GPoint(bounds.size.w - Offset, 0), GPoint(bounds.size.w - Offset, bounds.size.h - Offset));
 
-    for (int16_t i = 1; i < Weekday_Nb; i++) {
-        graphics_draw_line(ctx, GPoint(0, i * Weekday_Day_Height), GPoint(bounds.size.w, i * Weekday_Day_Height));
+    if (settings.weekday_format == INTL) {
+        for (int16_t i = 1; i < Weekday_Nb; i++) {
+            graphics_draw_line(ctx, GPoint(0, i * Weekday_Day_Height), GPoint(bounds.size.w, i * Weekday_Day_Height));
+        }
     }
 }
 
@@ -103,21 +123,24 @@ static void seconds_bg_layer_draw(Layer *layer, GContext *ctx) {
     // Horizontal container lines
     GRect bounds = layer_get_bounds(layer);
     graphics_context_set_stroke_color(ctx, GColorWhite);
+    int16_t seconds_bg_y_offset = settings.display_seconds ? 0 : 1;
+    
+    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y1 + seconds_bg_y_offset), GPoint(bounds.size.w * battery_state / 100, Seconds_BG_Y1 + seconds_bg_y_offset));
+    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y2 - seconds_bg_y_offset), GPoint(bounds.size.w * battery_state / 100, Seconds_BG_Y2 - seconds_bg_y_offset));
 
-    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y1), GPoint(bounds.size.w * battery_state / 100, Seconds_BG_Y1));
-    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y2), GPoint(bounds.size.w * battery_state / 100, Seconds_BG_Y2));
+    if (settings.display_seconds || settings.display_battery) {
+        // Halfway indicator (30s / 50%)
+        graphics_draw_line(ctx, GPoint(Seconds_BG_Ind30_X, 0), GPoint(Seconds_BG_Ind30_X, Offset));
+        graphics_draw_line(ctx, GPoint(Seconds_BG_Ind30_X, Seconds_BG_Y2 + (Offset * 2)), GPoint(Seconds_BG_Ind30_X, Seconds_BG_Y2 + (Offset * 2) + Offset));
 
-    // Halfway indicator (30s)
-    graphics_draw_line(ctx, GPoint(Seconds_BG_Ind30_X, 0), GPoint(Seconds_BG_Ind30_X, Offset));
-    graphics_draw_line(ctx, GPoint(Seconds_BG_Ind30_X, Seconds_BG_Y2 + (Offset * 2)), GPoint(Seconds_BG_Ind30_X, Seconds_BG_Y2 + (Offset * 2) + Offset));
+        // Quarter indicator (15s / 25%)
+        graphics_draw_line(ctx, GPoint(Seconds_BG_Ind15_X, Offset), GPoint(Seconds_BG_Ind15_X, Offset));
+        graphics_draw_line(ctx, GPoint(Seconds_BG_Ind15_X, Seconds_BG_Y2 + (Offset * 2)), GPoint(Seconds_BG_Ind15_X, Seconds_BG_Y2 + (Offset * 2)));
 
-    // Quarter indicator (15s)
-    graphics_draw_line(ctx, GPoint(Seconds_BG_Ind15_X, Offset), GPoint(Seconds_BG_Ind15_X, Offset));
-    graphics_draw_line(ctx, GPoint(Seconds_BG_Ind15_X, Seconds_BG_Y2 + (Offset * 2)), GPoint(Seconds_BG_Ind15_X, Seconds_BG_Y2 + (Offset * 2)));
-
-    // Three-quarter indicator (45s)
-    graphics_draw_line(ctx, GPoint(Seconds_BG_Ind45_X, Offset), GPoint(Seconds_BG_Ind45_X, Offset));
-    graphics_draw_line(ctx, GPoint(Seconds_BG_Ind45_X, Seconds_BG_Y2 + (Offset * 2)), GPoint(Seconds_BG_Ind45_X, Seconds_BG_Y2 + (Offset * 2)));
+        // Three-quarter indicator (45s / 75%)
+        graphics_draw_line(ctx, GPoint(Seconds_BG_Ind45_X, Offset), GPoint(Seconds_BG_Ind45_X, Offset));
+        graphics_draw_line(ctx, GPoint(Seconds_BG_Ind45_X, Seconds_BG_Y2 + (Offset * 2)), GPoint(Seconds_BG_Ind45_X, Seconds_BG_Y2 + (Offset * 2)));
+    }
 }
 
 
@@ -125,91 +148,98 @@ static void seconds_bg_layer_draw(Layer *layer, GContext *ctx) {
 static void weekday_layer_draw(Layer *layer, GContext *ctx) {
     graphics_context_set_stroke_color(ctx, GColorWhite);
 
-    for (int16_t position = 0; position < Weekday_Nb; position++) {
-        // Day of the month being drawn, based on the current day
-        int16_t mday = current_time.tm_mday;
-        // Day of the week being drawn, based on the current weekday
-        int16_t wday = current_time.tm_wday;
-        // Difference between the position we're drawing and the current weekday
-        int16_t mday_delta = position - wday;
+    if (settings.weekday_format == INTL) {
+        for (int16_t position = 0; position < Weekday_Nb; position++) {
+            // Day of the month being drawn, based on the current day
+            int16_t mday = current_time.tm_mday;
+            // Day of the week being drawn, based on the current weekday
+            int16_t wday = current_time.tm_wday;
+            // Handle displaying a day other than Sunday as the first day
+            wday = (wday + (Weekday_Nb - settings.weekday_first_day)) % Weekday_Nb;
+            // Difference between the position we're drawing and the current weekday
+            int16_t mday_delta = position - wday;
 
-        if (mday_delta < -Weekday_Max_Delta) {
-            // If the day delta is too low, we actually draw a day in the future instead  (Sunday to Tuesday when currently Thursday or later in the week)
-            mday_delta += Weekday_Nb;
-        }
-        else if (mday_delta > Weekday_Max_Delta) {
-            // If the day delta is too high, we actually draw a day in the past instead (Thursday to Saturday when currently Tuesday or earlier in the week)
-            mday_delta -= Weekday_Nb;
-        }
+            if (mday_delta < -Weekday_Max_Delta) {
+                // If the day delta is too low, we actually draw a day in the future instead  (Sunday to Tuesday when currently Thursday or later in the week)
+                mday_delta += Weekday_Nb;
+            }
+            else if (mday_delta > Weekday_Max_Delta) {
+                // If the day delta is too high, we actually draw a day in the past instead (Thursday to Saturday when currently Tuesday or earlier in the week)
+                mday_delta -= Weekday_Nb;
+            }
 
-        // To separate the weekdays in the past from those in the future, we draw an arrow on the border (except if that border is spread out on the screen edges)
-        int16_t line;
-        switch (mday_delta) {
-            // Draw the bottom part of the arrow
-            case -3:
-                if (position > 0) {
-                    line = position * 24;
-                    for (int i = 2; i < 7; i += 2) {
-                        graphics_draw_line(ctx, GPoint(i, ++line), GPoint(13 - i, line));
+            // To separate the weekdays in the past from those in the future, we draw an arrow on the border (except if that border is spread out on the screen edges)
+            int16_t line;
+            switch (mday_delta) {
+                // Draw the bottom part of the arrow
+                case -3:
+                    if (position > 0) {
+                        line = position * 24;
+                        for (int i = 2; i < 7; i += 2) {
+                            graphics_draw_line(ctx, GPoint(i, ++line), GPoint(13 - i, line));
+                        }
                     }
-                }
-                break;
-            // Draw the top part of the arrow
-            case 3:
-                if (position < 6) {
-                    line = (position + 1) * 24;
-                    for (int i = 0; i < 6; i += 2) {
-                        graphics_draw_line(ctx, GPoint(0, --line), GPoint(5 - i, line));
-                        graphics_draw_line(ctx, GPoint(8 + i, line), GPoint(13, line));
+                    break;
+                // Draw the top part of the arrow
+                case 3:
+                    if (position < 6) {
+                        line = (position + 1) * 24;
+                        for (int i = 0; i < 6; i += 2) {
+                            graphics_draw_line(ctx, GPoint(0, --line), GPoint(5 - i, line));
+                            graphics_draw_line(ctx, GPoint(8 + i, line), GPoint(13, line));
+                        }
                     }
+                    break;
+            }
+
+            // Decide what the day of the month we're drawing actually is
+            mday += mday_delta;
+            if (mday < 1) {
+                // If we're in the past and accross a month's start, get the last day of the previous month and count from there
+                int16_t new_month = current_time.tm_mon - 1;
+                // watch out for December...
+                if (new_month == -1) {
+                    new_month = 11;
                 }
-                break;
-        }
+                mday += mday_max[new_month];
+                // ... and February on leap years (not checking for the 100s and 400s rules since they won't occur for 87 years...)
+                if ((new_month == 1) && ((current_time.tm_year + 1900) % 4 == 0)) {
+                    mday++;
+                }
+            }
+            else if (mday > mday_max[current_time.tm_mon]) {
+                // If we're in the future and past the current month's end, start from 1 in the next month
+                int mday_mod = mday_max[current_time.tm_mon];
+                // watch out for February in leap years here too
+                if ((current_time.tm_mon == 1) && ((current_time.tm_year + 1900) % 4 == 0)) {
+                    mday_mod++;
+                }
+                mday %= mday_mod;
+            }
 
-        // Decide what the day of the month we're drawing actually is
-        mday += mday_delta;
-        if (mday < 1) {
-            // If we're in the past and accross a month's start, get the last day of the previous month and count from there
-            int16_t new_month = current_time.tm_mon - 1;
-            // watch out for December...
-            if (new_month == -1) {
-                new_month = 11;
+            // Decide where to draw and in what color
+            int base_y = (position * Weekday_Day_Height) + 12 - 5;
+            int color = (bool)(wday == position);
+            if (color) {
+                // If we're drawing today's date, we need to fill in the background in white...
+                graphics_context_set_fill_color(ctx, GColorWhite);
+                graphics_fill_rect(ctx, GRect(0, position * Weekday_Day_Height, 14, Weekday_Day_Height), 0, GCornerNone);
+                // ... and draw our digits in inverted mode
+                graphics_context_set_compositing_mode(ctx, GCompOpAssignInverted);
             }
-            mday += mday_max[new_month];
-            // ... and February on leap years (not checking for the 100s and 400s rules since they won't occur for 87 years...)
-            if ((new_month == 1) && ((current_time.tm_year + 1900) % 4 == 0)) {
-                mday++;
+            // draw the actual digits from what we decided above
+            if (mday >= 10) {
+                graphics_draw_bitmap_in_rect(ctx, weekday_digits[mday / 10], GRect(0, base_y, 6, 11));
+            }
+            graphics_draw_bitmap_in_rect(ctx, weekday_digits[mday % 10], GRect(7, base_y, 6, 11));
+            if (color) {
+                // Switching the context back to normal mode
+                graphics_context_set_compositing_mode(ctx, GCompOpAssign);
             }
         }
-        else if (mday > mday_max[current_time.tm_mon]) {
-            // If we're in the future and past the current month's end, start from 1 in the next month
-            int mday_mod = mday_max[current_time.tm_mon];
-            // watch out for February in leap years here too
-            if ((current_time.tm_mon == 1) && ((current_time.tm_year + 1900) % 4 == 0)) {
-                mday_mod++;
-            }
-            mday %= mday_mod;
-        }
-
-        // Decide where to draw and in what color
-        int base_y = (position * Weekday_Day_Height) + 12 - 5;
-        int color = (bool)(wday == position);
-        if (color) {
-            // If we're drawing today's date, we need to fill in the background in white...
-            graphics_context_set_fill_color(ctx, GColorWhite);
-            graphics_fill_rect(ctx, GRect(0, position * Weekday_Day_Height, 14, Weekday_Day_Height), 0, GCornerNone);
-            // ... and draw our digits in inverted mode
-            graphics_context_set_compositing_mode(ctx, GCompOpAssignInverted);
-        }
-        // draw the actual digits from what we decided above
-        if (mday >= 10) {
-            graphics_draw_bitmap_in_rect(ctx, weekday_digits[mday / 10], GRect(0, base_y, 6, 11));
-        }
-        graphics_draw_bitmap_in_rect(ctx, weekday_digits[mday % 10], GRect(7, base_y, 6, 11));
-        if (color) {
-            // Switching the context back to normal mode
-            graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-        }
+    }
+    else {
+        graphics_draw_bitmap_in_rect(ctx, weekday_names[current_time.tm_wday], GRect(Weekday_Layer_Dim.x, Weekday_Layer_Dim.y, Weekday_Layer_Dim.width, Weekday_Layer_Dim.height));
     }
 }
 
@@ -222,21 +252,14 @@ static void date_layer_draw(Layer *layer, GContext *ctx) {
     int16_t year = current_time.tm_year + 1900;
     int16_t month = current_time.tm_mon + 1;
 
-    char date_str[10];
-    int16_t date_int[10] = { [0 ... 9] = 255};
+    int16_t date_int[40] = { [0 ... 9] = INT16_MIN};
     int16_t format_length;
 
-    if (!clock_is_24h_style()) {
-        strncpy(date_str, "M/D/Y", 10);
-    }
-    else {
-        strncpy(date_str, "Y-M-D", 10);
-    }
-    format_length = strlen(date_str);
+    format_length = strlen(settings.date_format);
 
     int16_t j = 0;
     for (int16_t i = 0; i < format_length; i++) {
-        switch (date_str[i]) {
+        switch (settings.date_format[i]) {
             case '-':
                 date_int[j++] = -1;
                 break;
@@ -248,6 +271,7 @@ static void date_layer_draw(Layer *layer, GContext *ctx) {
                 break;
             case ' ':
                 j++;
+                break;
             case 'Y':
                 date_int[j] = year / 1000;
                 date_int[++j] = year % 1000 / 100;
@@ -293,9 +317,12 @@ static void date_layer_draw(Layer *layer, GContext *ctx) {
             // Any other character has no meaning so we ignore it
         }
     }
+    
+    // Make sure we won't run off the screen
+    j = j <= 10 ? j : 10;
 
     int16_t base_y;
-    int16_t offset_y = (Date_Max_Char - j) / 2 * Date_Char_Height;
+    int16_t offset_y = ((Date_Max_Char - j) / 2 * Date_Char_Height) + ((j % 2) * (Date_Char_Height / 2));
 
     // Loop over the array to draw the digits
     for (int16_t i = 0; i < j; i++) {
@@ -343,7 +370,7 @@ static void hours_layer_draw(Layer *layer, GContext *ctx) {
             hour = 12;
         }
     }
-    if (hour >= 10) {
+    if (settings.leading_zero || hour >= 10) {
         graphics_draw_bitmap_in_rect(ctx, time_digits[hour / 10], GRect(Time_Digit[0].x, Time_Digit[0].y, Time_Digit[0].width, Time_Digit[0].height));
     }
     graphics_draw_bitmap_in_rect(ctx, time_digits[hour % 10], GRect(Time_Digit[1].x, Time_Digit[1].y, Time_Digit[1].width, Time_Digit[1].height));
@@ -373,11 +400,16 @@ static void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     current_time = *tick_time;
 
     // Mark the relevant layers for refresh
-    layer_mark_dirty(seconds_layer);
+    if (settings.display_seconds) {
+        layer_mark_dirty(seconds_layer);
+    }
     if (current_time.tm_sec == 0) {
         layer_mark_dirty(minutes_layer);
         if (current_time.tm_min == 0) {
             layer_mark_dirty(hours_layer);
+            if (settings.vibrate_on_hour) {
+                vibes_short_pulse();
+            }
             if (!clock_is_24h_style() && current_time.tm_hour % 12 == 0) {
                 layer_mark_dirty(ampm_layer);
             }
@@ -396,13 +428,37 @@ static void handle_battery(BatteryChargeState charge_state) {
 }
 
 
+// Get our settings from the phone, locally or use the defaults
+void init_settings(void) {
+    // Defaults
+    settings.weekday_format = INTL;
+    settings.vibrate_on_hour = false;
+    settings.display_seconds = true;
+    settings.leading_zero = false;
+    settings.weekday_first_day = 0;
+    if (!clock_is_24h_style()) {
+        strncpy(settings.date_format, "M/D/Y", 10);
+    }
+    else {
+        strncpy(settings.date_format, "Y-M-D", 10);
+    }
+    settings.display_battery = true;
+}
+
+
 // initialize, initialize, INITIALIZE!
 void handle_init(void) {
     // Populate the global time and battery variables so we have them when painting
+    init_settings();
     time_t timer = time(NULL);
     current_time = *localtime(&timer);
-    BatteryChargeState battery_peek = battery_state_service_peek();
-    battery_state = battery_peek.charge_percent;
+    if (settings.display_battery) {
+        BatteryChargeState battery_peek = battery_state_service_peek();
+        battery_state = battery_peek.charge_percent;
+    }
+    else {
+        battery_state = 100;
+    }
 
     // Setting up our window
     window = window_create();
@@ -470,22 +526,55 @@ void handle_init(void) {
     date_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_DATE_8);
     date_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_DATE_9);
 
-    weekday_digits[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_0);
-    weekday_digits[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_1);
-    weekday_digits[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_2);
-    weekday_digits[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_3);
-    weekday_digits[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_4);
-    weekday_digits[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_5);
-    weekday_digits[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_6);
-    weekday_digits[7] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_7);
-    weekday_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_8);
-    weekday_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_9);
+    switch (settings.weekday_format) {
+        case INTL:
+            weekday_digits[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_0);
+            weekday_digits[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_1);
+            weekday_digits[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_2);
+            weekday_digits[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_3);
+            weekday_digits[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_4);
+            weekday_digits[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_5);
+            weekday_digits[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_6);
+            weekday_digits[7] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_7);
+            weekday_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_8);
+            weekday_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_9);
+            break;
+        case EN:
+            weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_0);
+            weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_1);
+            weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_2);
+            weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_3);
+            weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_4);
+            weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_5);
+            weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_6);
+            break;
+        case FR:
+            weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_0);
+            weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_1);
+            weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_2);
+            weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_3);
+            weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_4);
+            weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_5);
+            weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_6);
+            break;
+        case ES:
+            weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_0);
+            weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_1);
+            weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_2);
+            weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_3);
+            weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_4);
+            weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_5);
+            weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_6);
+            break;
+    }
 
     // Subscribing to the tick event
-    tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
+    tick_timer_service_subscribe(settings.display_seconds ? SECOND_UNIT: MINUTE_UNIT, handle_tick);
 
-    // Subscribing to the battery change event
-    battery_state_service_subscribe(handle_battery);
+    if (settings.display_battery) {
+        // Subscribing to the battery change event
+        battery_state_service_subscribe(handle_battery);
+    }
 }
 
 
@@ -495,7 +584,14 @@ void handle_deinit(void) {
     for (int16_t i = 0; i < 10; i++) {
         gbitmap_destroy(time_digits[i]);
         gbitmap_destroy(date_digits[i]);
-        gbitmap_destroy(weekday_digits[i]);
+        if (settings.weekday_format == INTL) {
+            gbitmap_destroy(weekday_digits[i]);
+        }
+    }
+    if (settings.weekday_format != INTL) {
+        for (int16_t i = 0; i < 7; i++) {
+            gbitmap_destroy(weekday_names[i]);
+        }
     }
 
     // Display layers
