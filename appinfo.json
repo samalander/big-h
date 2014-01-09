@@ -9,7 +9,15 @@
     "watchface": true
   },
   "capabilities": [ "configurable" ],
-  "appKeys": {},
+  "appKeys": {
+    "weekday_format": 0,
+    "vibrate_on_hour": 1,
+    "display_seconds": 2,
+    "leading_zero": 3,
+    "weekday_first_day": 4,
+    "date_format": 5,
+    "display_battery": 6
+  },
   "resources": {
     "media": [
       {

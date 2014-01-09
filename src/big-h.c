@@ -14,6 +14,10 @@
 #include <time.h>
 
 
+// ===== Function Declarations =====
+void handle_init(void);
+void handle_deinit(void);
+
 // ===== Defined Constants =====
 typedef struct Rect_Predef {
     int16_t x, y, width, height;
@@ -26,6 +30,18 @@ enum weekday_format_types {
     ES = 3
 };
 
+enum settings_app_message_keys {
+    Weekday_Format = 0,
+    Vibrate_on_Hour = 1,
+    Display_Seconds = 2,
+    Leading_Zero = 3,
+    Weekday_First_Day = 4,
+    Date_Format = 5,
+    Display_Battery = 6
+};
+
+static const int16_t Settings_Storage_Key = 0;
+
 typedef struct Settings_Type {
     enum weekday_format_types weekday_format;
     bool vibrate_on_hour;
@@ -34,7 +50,7 @@ typedef struct Settings_Type {
     int16_t weekday_first_day;
     char date_format[10];
     bool display_battery;
-} Settings_Type;
+} __attribute__((__packed__)) Settings_Type;
 
 static const Rect_Predef Screen_Dim = {0, 0, 144, 168};
 static const Rect_Predef Weekday_BG_Layer_Dim = {0, 0, 15, 168};
@@ -428,21 +444,91 @@ static void handle_battery(BatteryChargeState charge_state) {
 }
 
 
+// Outgoing message was delivered
+void out_sent_handler(DictionaryIterator *sent, void *context) {
+
+}
+
+
+// Outgoing message failed
+void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
+
+}
+
+
+// Incoming message received
+void in_received_handler(DictionaryIterator *received, void *context) {
+    bool settingsUpdated = false;
+
+    Tuple *tuple = dict_read_first(received);
+    while (tuple) {
+        switch (tuple->key) {
+            case Weekday_Format:
+                settings.weekday_format = (enum weekday_format_types)tuple->value->data;
+                settingsUpdated = true;
+                break;
+            case Vibrate_on_Hour:
+                settings.vibrate_on_hour = (bool)tuple->value->data;
+                settingsUpdated = true;
+                break;
+            case Display_Seconds:
+                settings.display_seconds = (bool)tuple->value->data;
+                settingsUpdated = true;
+                break;
+            case Leading_Zero:
+                settings.leading_zero = (bool)tuple->value->data;
+                settingsUpdated = true;
+                break;
+            case Weekday_First_Day:
+                settings.weekday_first_day = (int32_t)tuple->value->data;
+                settingsUpdated = true;
+                break;
+            case Date_Format:
+                strncpy(settings.date_format, tuple->value->cstring, 10);
+                settingsUpdated = true;
+                break;
+            case Display_Battery:
+                settings.display_battery = (bool)tuple->value->data;
+                settingsUpdated = true;
+                break;
+        }
+        tuple = dict_read_next(received);
+    }
+
+    if (settingsUpdated) {
+        persist_write_data(Settings_Storage_Key, &settings, sizeof(settings));
+    }
+}
+
+
+// Incoming message dropped
+void in_dropped_handler(AppMessageResult reason, void *context) {
+
+}
+
+
 // Get our settings from the phone, locally or use the defaults
 void init_settings(void) {
-    // Defaults
-    settings.weekday_format = INTL;
-    settings.vibrate_on_hour = false;
-    settings.display_seconds = true;
-    settings.leading_zero = false;
-    settings.weekday_first_day = 0;
-    if (!clock_is_24h_style()) {
-        strncpy(settings.date_format, "M/D/Y", 10);
+    // Check local storage for our settings
+    if (persist_exists(Settings_Storage_Key)) {
+        // If settings exist locally, load them
+        persist_read_data(Settings_Storage_Key, &settings, sizeof(settings));
     }
     else {
-        strncpy(settings.date_format, "Y-M-D", 10);
+        // Otherwise, use the defaults
+        settings.weekday_format = INTL;
+        settings.vibrate_on_hour = false;
+        settings.display_seconds = true;
+        settings.leading_zero = false;
+        settings.weekday_first_day = 0;
+        if (!clock_is_24h_style()) {
+            strncpy(settings.date_format, "M/D/Y", 10);
+        }
+        else {
+            strncpy(settings.date_format, "Y-M-D", 10);
+        }
+        settings.display_battery = true;
     }
-    settings.display_battery = true;
 }
 
 
@@ -575,6 +661,16 @@ void handle_init(void) {
         // Subscribing to the battery change event
         battery_state_service_subscribe(handle_battery);
     }
+
+    // Registering the messaging handlers
+    app_message_register_inbox_received(in_received_handler);
+    app_message_register_inbox_dropped(in_dropped_handler);
+    app_message_register_outbox_sent(out_sent_handler);
+    app_message_register_outbox_failed(out_failed_handler);
+
+    const uint32_t inbound_size = 64;
+    const uint32_t outbound_size = 64;
+    app_message_open(inbound_size, outbound_size);
 }
 
 
