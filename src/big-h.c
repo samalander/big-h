@@ -31,26 +31,34 @@ enum weekday_format_types {
 };
 
 enum settings_app_message_keys {
-    Weekday_Format = 0,
-    Vibrate_on_Hour = 1,
-    Display_Seconds = 2,
-    Leading_Zero = 3,
-    Weekday_First_Day = 4,
-    Date_Format = 5,
-    Display_Battery = 6
+    Weekday_Format = 1,
+    Vibrate_on_Hour = 2,
+    Display_Seconds = 3,
+    Leading_Zero = 4,
+    Weekday_First_Day = 5,
+    Date_Format = 6,
+    Display_Battery = 7
 };
 
-static const int16_t Settings_Storage_Key = 0;
+enum settings_storage_keys {
+    Key_Weekday_Format = 1,
+    Key_Vibrate_on_Hour = 2,
+    Key_Display_Seconds = 3,
+    Key_Leading_Zero = 4,
+    Key_Weekday_First_Day = 5,
+    Key_Date_Format = 6,
+    Key_Display_Battery = 7
+};
 
 typedef struct Settings_Type {
-    enum weekday_format_types weekday_format;
+    int16_t weekday_format;
     bool vibrate_on_hour;
     bool display_seconds;
     bool leading_zero;
     int16_t weekday_first_day;
     char date_format[10];
     bool display_battery;
-} __attribute__((__packed__)) Settings_Type;
+} Settings_Type;
 
 static const Rect_Predef Screen_Dim = {0, 0, 144, 168};
 static const Rect_Predef Weekday_BG_Layer_Dim = {0, 0, 15, 168};
@@ -110,6 +118,23 @@ GBitmap * weekday_digits[10],
 struct tm current_time;
 int16_t battery_state;
 struct Settings_Type settings;
+bool settings_initialized = false;
+
+
+// Utility method to convert a simple string to an integer
+static int16_t string_to_int(char* string) {
+    int16_t maxlen = strlen(string),
+        result = 0;
+    if (maxlen > 10) {
+        maxlen = 10;
+    }
+    for (int16_t i=0; i<maxlen; i++) {
+        if (string[i] >= '0' && string[i] <= '9') {
+            result = (result * 10) + (string[i] - '0');
+        }
+    }
+    return result;
+}
 
 
 // Drawing the weekday background layer
@@ -140,9 +165,14 @@ static void seconds_bg_layer_draw(Layer *layer, GContext *ctx) {
     GRect bounds = layer_get_bounds(layer);
     graphics_context_set_stroke_color(ctx, GColorWhite);
     int16_t seconds_bg_y_offset = settings.display_seconds ? 0 : 1;
+
+    int16_t indicator_width = bounds.size.w;
+    if (settings.display_battery) {
+        indicator_width = indicator_width * battery_state / 100;
+    }
     
-    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y1 + seconds_bg_y_offset), GPoint(bounds.size.w * battery_state / 100, Seconds_BG_Y1 + seconds_bg_y_offset));
-    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y2 - seconds_bg_y_offset), GPoint(bounds.size.w * battery_state / 100, Seconds_BG_Y2 - seconds_bg_y_offset));
+    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y1 + seconds_bg_y_offset), GPoint(indicator_width, Seconds_BG_Y1 + seconds_bg_y_offset));
+    graphics_draw_line(ctx, GPoint(0, Seconds_BG_Y2 - seconds_bg_y_offset), GPoint(indicator_width, Seconds_BG_Y2 - seconds_bg_y_offset));
 
     if (settings.display_seconds || settings.display_battery) {
         // Halfway indicator (30s / 50%)
@@ -271,11 +301,24 @@ static void date_layer_draw(Layer *layer, GContext *ctx) {
     int16_t date_int[40] = { [0 ... 9] = INT16_MIN};
     int16_t format_length;
 
+    char current_date_format[10];
     format_length = strlen(settings.date_format);
+    if (format_length == 0) {
+        if (!clock_is_24h_style()) {
+            strncpy(current_date_format, "M/D/Y", 10);
+        }
+        else {
+            strncpy(current_date_format, "Y-M-D", 10);
+        }
+        format_length = strlen(current_date_format);
+    }
+    else {
+        strncpy(current_date_format,settings.date_format,10);
+    }
 
     int16_t j = 0;
     for (int16_t i = 0; i < format_length; i++) {
-        switch (settings.date_format[i]) {
+        switch (current_date_format[i]) {
             case '-':
                 date_int[j++] = -1;
                 break;
@@ -286,6 +329,7 @@ static void date_layer_draw(Layer *layer, GContext *ctx) {
                 date_int[j++] = -3;
                 break;
             case ' ':
+            case '+': // URL-encoded space
                 j++;
                 break;
             case 'Y':
@@ -444,51 +488,192 @@ static void handle_battery(BatteryChargeState charge_state) {
 }
 
 
+// Get our settings from the phone, locally or use the defaults
+void init_settings(void) {
+    Settings_Type newSettings;
+
+    // Check local storage for our settings
+    if (persist_exists(Key_Weekday_Format)) {
+        // If settings exist locally, load them
+        newSettings.weekday_format = persist_read_int(Key_Weekday_Format);
+        newSettings.vibrate_on_hour = persist_read_bool(Key_Vibrate_on_Hour);
+        newSettings.display_seconds = persist_read_bool(Key_Display_Seconds);
+        newSettings.leading_zero = persist_read_bool(Key_Leading_Zero);
+        newSettings.weekday_first_day = persist_read_int(Key_Weekday_First_Day);
+        persist_read_string(Key_Date_Format, newSettings.date_format, 10);
+        newSettings.display_battery = persist_read_bool(Key_Display_Battery);
+    }
+    else {
+        // Otherwise, use the defaults
+        newSettings.weekday_format = INTL;
+        newSettings.vibrate_on_hour = false;
+        newSettings.display_seconds = true;
+        newSettings.leading_zero = false;
+        newSettings.weekday_first_day = 0;
+        strncpy(newSettings.date_format, "", 10);
+        newSettings.display_battery = true;
+    }
+
+    // First, we unsubscribe from the tick timer service to stop all possible concurrent calls
+    tick_timer_service_unsubscribe();
+
+    if ((!settings_initialized) || (settings.weekday_format != newSettings.weekday_format)) {
+        if (settings_initialized) {
+            // If we previously had ressources loaded and we're changing the weekday format, unload them
+            if (settings.weekday_format == INTL) {
+                for (int16_t i = 0; i < 10; i++) {
+                    gbitmap_destroy(weekday_digits[i]);
+                }
+            }
+            else {
+                for (int16_t i = 0; i < 7; i++) {
+                    gbitmap_destroy(weekday_names[i]);
+                }
+            }
+        }
+        settings.weekday_format=newSettings.weekday_format;
+        // Load the appropriate ressources
+        switch (settings.weekday_format) {
+            case INTL:
+                weekday_digits[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_0);
+                weekday_digits[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_1);
+                weekday_digits[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_2);
+                weekday_digits[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_3);
+                weekday_digits[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_4);
+                weekday_digits[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_5);
+                weekday_digits[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_6);
+                weekday_digits[7] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_7);
+                weekday_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_8);
+                weekday_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_9);
+                break;
+            case EN:
+                weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_0);
+                weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_1);
+                weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_2);
+                weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_3);
+                weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_4);
+                weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_5);
+                weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_6);
+                break;
+            case FR:
+                weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_0);
+                weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_1);
+                weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_2);
+                weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_3);
+                weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_4);
+                weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_5);
+                weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_6);
+                break;
+            case ES:
+                weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_0);
+                weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_1);
+                weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_2);
+                weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_3);
+                weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_4);
+                weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_5);
+                weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_6);
+                break;
+        }
+        // Make sure we redraw the weekday with the new settings
+        layer_mark_dirty(weekday_layer);
+        layer_mark_dirty(weekday_bg_layer);
+    }
+    if ((!settings_initialized) || (settings.vibrate_on_hour != newSettings.vibrate_on_hour)) {
+        settings.vibrate_on_hour=newSettings.vibrate_on_hour;
+    }
+    if ((!settings_initialized) || (settings.leading_zero != newSettings.leading_zero)) {
+        settings.leading_zero=newSettings.leading_zero;
+        layer_mark_dirty(hours_layer);
+    }
+    if ((!settings_initialized) || (settings.weekday_first_day != newSettings.weekday_first_day)) {
+        settings.weekday_first_day=newSettings.weekday_first_day;
+        layer_mark_dirty(weekday_layer);
+    }
+    if ((!settings_initialized) || (strcmp(settings.date_format, newSettings.date_format) != 0)) {
+        strncpy(settings.date_format, newSettings.date_format, 10);
+        layer_mark_dirty(date_layer);
+    }
+    if ((!settings_initialized) || (settings.display_battery != newSettings.display_battery)) {
+        if ((settings_initialized) && (settings.display_battery)) {
+            // We were previously showing battery status, unsubscribe from the service
+            battery_state_service_unsubscribe();
+        }
+        settings.display_battery=newSettings.display_battery;
+        if (settings.display_battery) {
+            // We're now showing battery stats, get an initial state and subscribe to the service
+            BatteryChargeState battery_peek = battery_state_service_peek();
+            battery_state = battery_peek.charge_percent;
+            battery_state_service_subscribe(handle_battery);
+        }
+        layer_mark_dirty(seconds_layer);
+        layer_mark_dirty(seconds_bg_layer);
+    }
+    if ((!settings_initialized) || (settings.display_seconds != newSettings.display_seconds)) {
+        settings.display_seconds=newSettings.display_seconds;
+        layer_mark_dirty(seconds_layer);
+        layer_mark_dirty(seconds_bg_layer);
+    }
+
+    // Last, we subscribe to the appropriate tick timer service
+    tick_timer_service_subscribe(settings.display_seconds ? SECOND_UNIT: MINUTE_UNIT, handle_tick);
+
+    settings_initialized = true;
+}
+
+
 // Outgoing message was delivered
 void out_sent_handler(DictionaryIterator *sent, void *context) {
-
+    APP_LOG(APP_LOG_LEVEL_INFO, "Sending Message - Success");
 }
 
 
 // Outgoing message failed
 void out_failed_handler(DictionaryIterator *failed, AppMessageResult reason, void *context) {
-
+    APP_LOG(APP_LOG_LEVEL_INFO, "Sending Message - Failed");
 }
 
 
 // Incoming message received
 void in_received_handler(DictionaryIterator *received, void *context) {
+    APP_LOG(APP_LOG_LEVEL_INFO, "Received Message - Success");
     bool settingsUpdated = false;
-
+    Settings_Type newSettings = settings;
+    int16_t value_num;
     Tuple *tuple = dict_read_first(received);
     while (tuple) {
+        if (tuple->type == TUPLE_CSTRING) {
+            value_num = string_to_int(tuple->value->cstring);
+        }
+        else {
+            value_num = tuple->value->int16;
+        }
         switch (tuple->key) {
             case Weekday_Format:
-                settings.weekday_format = (enum weekday_format_types)tuple->value->data;
+                newSettings.weekday_format = value_num;
                 settingsUpdated = true;
                 break;
             case Vibrate_on_Hour:
-                settings.vibrate_on_hour = (bool)tuple->value->data;
+                newSettings.vibrate_on_hour = value_num;
                 settingsUpdated = true;
                 break;
             case Display_Seconds:
-                settings.display_seconds = (bool)tuple->value->data;
+                newSettings.display_seconds = value_num;
                 settingsUpdated = true;
                 break;
             case Leading_Zero:
-                settings.leading_zero = (bool)tuple->value->data;
+                newSettings.leading_zero = value_num;
                 settingsUpdated = true;
                 break;
             case Weekday_First_Day:
-                settings.weekday_first_day = (int32_t)tuple->value->data;
+                newSettings.weekday_first_day = value_num;
                 settingsUpdated = true;
                 break;
             case Date_Format:
-                strncpy(settings.date_format, tuple->value->cstring, 10);
+                strncpy(newSettings.date_format, tuple->value->cstring, 10);
                 settingsUpdated = true;
                 break;
             case Display_Battery:
-                settings.display_battery = (bool)tuple->value->data;
+                newSettings.display_battery = value_num;
                 settingsUpdated = true;
                 break;
         }
@@ -496,55 +681,29 @@ void in_received_handler(DictionaryIterator *received, void *context) {
     }
 
     if (settingsUpdated) {
-        persist_write_data(Settings_Storage_Key, &settings, sizeof(settings));
+        persist_write_int(Key_Weekday_Format, newSettings.weekday_format);
+        persist_write_bool(Key_Vibrate_on_Hour, newSettings.vibrate_on_hour);
+        persist_write_bool(Key_Display_Seconds, newSettings.display_seconds);
+        persist_write_bool(Key_Leading_Zero, newSettings.leading_zero);
+        persist_write_int(Key_Weekday_First_Day, newSettings.weekday_first_day);
+        persist_write_string(Key_Date_Format, newSettings.date_format);
+        persist_write_bool(Key_Display_Battery, newSettings.display_battery);
+        init_settings();
     }
 }
 
 
 // Incoming message dropped
 void in_dropped_handler(AppMessageResult reason, void *context) {
-
-}
-
-
-// Get our settings from the phone, locally or use the defaults
-void init_settings(void) {
-    // Check local storage for our settings
-    if (persist_exists(Settings_Storage_Key)) {
-        // If settings exist locally, load them
-        persist_read_data(Settings_Storage_Key, &settings, sizeof(settings));
-    }
-    else {
-        // Otherwise, use the defaults
-        settings.weekday_format = INTL;
-        settings.vibrate_on_hour = false;
-        settings.display_seconds = true;
-        settings.leading_zero = false;
-        settings.weekday_first_day = 0;
-        if (!clock_is_24h_style()) {
-            strncpy(settings.date_format, "M/D/Y", 10);
-        }
-        else {
-            strncpy(settings.date_format, "Y-M-D", 10);
-        }
-        settings.display_battery = true;
-    }
+    APP_LOG(APP_LOG_LEVEL_INFO, "Received Message - Failed");
 }
 
 
 // initialize, initialize, INITIALIZE!
 void handle_init(void) {
-    // Populate the global time and battery variables so we have them when painting
-    init_settings();
+    // Populate the global time variable so we have them when first painting
     time_t timer = time(NULL);
     current_time = *localtime(&timer);
-    if (settings.display_battery) {
-        BatteryChargeState battery_peek = battery_state_service_peek();
-        battery_state = battery_peek.charge_percent;
-    }
-    else {
-        battery_state = 100;
-    }
 
     // Setting up our window
     window = window_create();
@@ -612,55 +771,8 @@ void handle_init(void) {
     date_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_DATE_8);
     date_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_DATE_9);
 
-    switch (settings.weekday_format) {
-        case INTL:
-            weekday_digits[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_0);
-            weekday_digits[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_1);
-            weekday_digits[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_2);
-            weekday_digits[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_3);
-            weekday_digits[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_4);
-            weekday_digits[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_5);
-            weekday_digits[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_6);
-            weekday_digits[7] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_7);
-            weekday_digits[8] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_8);
-            weekday_digits[9] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_9);
-            break;
-        case EN:
-            weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_0);
-            weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_1);
-            weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_2);
-            weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_3);
-            weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_4);
-            weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_5);
-            weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_EN_6);
-            break;
-        case FR:
-            weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_0);
-            weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_1);
-            weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_2);
-            weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_3);
-            weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_4);
-            weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_5);
-            weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_FR_6);
-            break;
-        case ES:
-            weekday_names[0] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_0);
-            weekday_names[1] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_1);
-            weekday_names[2] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_2);
-            weekday_names[3] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_3);
-            weekday_names[4] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_4);
-            weekday_names[5] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_5);
-            weekday_names[6] = gbitmap_create_with_resource(RESOURCE_ID_WEEKDAY_ES_6);
-            break;
-    }
-
-    // Subscribing to the tick event
-    tick_timer_service_subscribe(settings.display_seconds ? SECOND_UNIT: MINUTE_UNIT, handle_tick);
-
-    if (settings.display_battery) {
-        // Subscribing to the battery change event
-        battery_state_service_subscribe(handle_battery);
-    }
+    // Initialize the setting specific items
+    init_settings();
 
     // Registering the messaging handlers
     app_message_register_inbox_received(in_received_handler);
@@ -668,8 +780,8 @@ void handle_init(void) {
     app_message_register_outbox_sent(out_sent_handler);
     app_message_register_outbox_failed(out_failed_handler);
 
-    const uint32_t inbound_size = 64;
-    const uint32_t outbound_size = 64;
+    const uint32_t inbound_size = app_message_inbox_size_maximum();
+    const uint32_t outbound_size = app_message_outbox_size_maximum();
     app_message_open(inbound_size, outbound_size);
 }
 

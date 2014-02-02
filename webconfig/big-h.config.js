@@ -8,6 +8,7 @@ $(document).ready(function() {
 		settings.leading_zero = $('#leading_zero_field:checked').length;
 		settings.weekday_first_day = 0 || $('div#weekday_first_day input[name="weekday_first_day"]:checked').val();
 		settings.date_format = $('#date_format_default:checked').length == 1 ? '' : $('div#date_format_custom_set option:selected').map(function() {return $(this).val()}).get().join('');
+		settings.display_battery = $('#display_battery_field:checked').length;
 		window.location.href = "pebblejs://close#" + encodeURIComponent(JSON.stringify(settings));
 	});
 	$('#cancel').click(function() {

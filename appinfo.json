@@ -3,20 +3,20 @@
   "shortName": "Big H",
   "longName": "Big H",
   "companyName": "Samalander",
-  "versionCode": 3,
+  "versionCode": 4,
   "versionLabel": "2.1.0",
   "watchapp": {
     "watchface": true
   },
   "capabilities": [ "configurable" ],
   "appKeys": {
-    "weekday_format": 0,
-    "vibrate_on_hour": 1,
-    "display_seconds": 2,
-    "leading_zero": 3,
-    "weekday_first_day": 4,
-    "date_format": 5,
-    "display_battery": 6
+    "weekday_format": 1,
+    "vibrate_on_hour": 2,
+    "display_seconds": 3,
+    "leading_zero": 4,
+    "weekday_first_day": 5,
+    "date_format": 6,
+    "display_battery": 7
   },
   "resources": {
     "media": [
